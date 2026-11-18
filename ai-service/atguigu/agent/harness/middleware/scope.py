@@ -34,5 +34,6 @@ class SkillScopeMiddleware(AgentMiddleware[AgentRunState, AgentRunContext, Agent
         # 3,获取真正的工具对象
         allowed_tools = [tool for tool in request.tools if tool.name in all_tool_name]
 
+        print(allowed_tools)
         # 4.handler给模型工具
         return await handler(request.override(tools=allowed_tools, model_settings={"parallel_tool_calls": False}))

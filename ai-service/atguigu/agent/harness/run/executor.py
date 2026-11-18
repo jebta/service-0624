@@ -92,6 +92,8 @@ class AgentExecutor:
                                                      config={
                                                          "callbacks": [callback]
                                                      })
+            for i,v in dict(agent_output).items():
+                print(f"{i}: {v}")
             try:
                 return await self._validator.validate_agent_output(agent_output['structured_response'],
                                                                    context.trace_id,

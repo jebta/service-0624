@@ -8,6 +8,7 @@ from langgraph.types import Command
 from atguigu.agent.harness.rules.skill import SkillCode, SkillDefinition, SKILL_CATALOG
 from atguigu.agent.harness.run.context import AgentRunContext
 from atguigu.agent.harness.tools.executor import ToolExecutor, tool_executor
+from atguigu.app.services.knowledge import search_kb
 from atguigu.common.utils import normalized_resource_id
 from atguigu.infrastructure.client import EcommerceClient
 
@@ -163,4 +164,21 @@ async def load_skill(
                             tool_call_id=runtime.tool_call_id)
             ]
         }
+    )
+
+@tool
+async def search_knowledge(
+        query: Annotated[str, "需要查询的平台规则、服务政策或帮助说明"],
+        runtime: ToolRuntime[AgentRunContext]
+) -> str:
+    """
+    查询平台知识内容。
+    用户询问售后规则、服务政策时调用。
+    该工具不用于查询订单、商品、库存、物流进度等实时业务数据。
+    """
+    return await tool_executor.execute_tool(
+        runtime=runtime,
+        tool_name="search_knowledge",
+        arguments={"query": query},
+        operator=lambda: search_kb()
     )

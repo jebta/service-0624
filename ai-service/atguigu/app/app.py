@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from atguigu.agent.agent import create_ai_agent
-from atguigu.app.routers import run
+from atguigu.app.routers import run, admin
 
 
 def lifespan(app: FastAPI):
@@ -12,7 +12,9 @@ def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Service", lifespan=lifespan)
 
+
 app.include_router(run.router)
+app.include_router(admin.router)
 
 app.add_middleware(
     CORSMiddleware,

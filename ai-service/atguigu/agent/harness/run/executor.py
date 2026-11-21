@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 
 from atguigu.agent.harness.run.context import build_messages, AgentRunContext
-from atguigu.agent.harness.validator.validator import Validator, ValidateAgentOutError
-from atguigu.app.models.enums import AgentTraceStatus
+from atguigu.agent.harness.validator.validator import Validator, ValidateAgentOutError, build_result
+from atguigu.app.models.enums import AgentTraceStatus, ReplyType
 from atguigu.app.models.models import AgentTrace
 from atguigu.app.schemas import CurrentUser, AgentRunRequest
 from atguigu.common.settings import get_settings
+from atguigu.agent.harness.validator.jev import check_input
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -75,45 +76,54 @@ class AgentExecutor:
         """
         职责：调用agent完成真正的推理
         """
-        # 1. 构建langchain标准的消息对象
-        messages = build_messages(payload)
-
-        # 2.构建上下文
-        context = AgentRunContext(
-            access_token=current_user.access_token,
-            trace_id=agent_trace.id
-        )
-
         callback = UsageMetadataCallbackHandler()
-        # 3. agent运行
-        # 3.1 调用agent
-        for attempt in range(self._settings.agent_max_attempts):
-            agent_output = await self._agent.ainvoke({"messages": messages}, context=context,
-                                                     config={
-                                                         "callbacks": [callback]
-                                                     })
-            for i,v in dict(agent_output).items():
-                print(f"{i}: {v}")
-            try:
-                return await self._validator.validate_agent_output(agent_output['structured_response'],
-                                                                   context.trace_id,
-                                                                   agent_output.get("skill_code"))
-                # 3.2 调用出错
-            except ValidateAgentOutError as e:
-                if attempt == self._settings.agent_max_attempts - 1:
-                    raise e
-                # 3.3 重试纠错（把执行完的结果以及【我要求你根据上一次结果的信息，给我重试】指令）
-                logger.exception(f"执行Agent期间出现了护栏校验异常，原因%s", str(e))
-                messages = [
-                    *agent_output["messages"],
-                    SystemMessage(content=f"上一次回复未通过校验：{e}，请修正后重新回复。")
-                ]
+        jev_input_tokens = 0
+        jev_output_tokens = 0
+        try:
+            # 1. Jev 前置检查：识别转人工/愤怒情绪，并预选领域技能
+            need_handoff, skill_code, jev_input_tokens, jev_output_tokens = await check_input(payload.messages)
+            if need_handoff:
+                return build_result(
+                    ReplyType.REQUEST_HANDOFF,
+                    reply_text="已收到您的诉求，正在为您转接人工客服优先处理，请稍候。",
+                    request_summary="用户要求转接人工客服或情绪较为焦急，请人工客服优先介入处理。"
+                )
 
-            finally:
-                # 3.5 统计token用量
-                input_tokens, output_tokens = self._summary_tokens(callback)
-                agent_trace.input_tokens = input_tokens
-                agent_trace.output_tokens = output_tokens
+            # 1. 构建langchain标准的消息对象
+            messages = build_messages(payload, skill_code)
+
+            # 2.构建上下文
+            context = AgentRunContext(
+                access_token=current_user.access_token,
+                trace_id=agent_trace.id
+            )
+
+            # 3. agent运行
+            # 3.1 调用agent
+            for attempt in range(self._settings.agent_max_attempts):
+                agent_output = await self._agent.ainvoke({"messages": messages}, context=context,
+                                                         config={
+                                                             "callbacks": [callback]
+                                                         })
+                try:
+                    return await self._validator.validate_agent_output(agent_output['structured_response'],
+                                                                       context.trace_id,
+                                                                       agent_output.get("skill_code"))
+                    # 3.2 调用出错
+                except ValidateAgentOutError as e:
+                    if attempt == self._settings.agent_max_attempts - 1:
+                        raise e
+                    # 3.3 重试纠错（把执行完的结果以及【我要求你根据上一次结果的信息，给我重试】指令）
+                    logger.exception(f"执行Agent期间出现了护栏校验异常，原因%s", str(e))
+                    messages = [
+                        *agent_output["messages"],
+                        SystemMessage(content=f"上一次回复未通过校验：{e}，请修正后重新回复。")
+                    ]
+        finally:
+            # 3.5 统计token用量
+            input_tokens, output_tokens = self._summary_tokens(callback)
+            agent_trace.input_tokens = input_tokens + jev_input_tokens
+            agent_trace.output_tokens = output_tokens + jev_output_tokens
 
     def _summary_tokens(self, callback: UsageMetadataCallbackHandler) -> tuple[int, int]:
         """

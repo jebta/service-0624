@@ -51,7 +51,7 @@ async def get_product(
     tool_arguments = {"product_id": normalized_product_id}
     # 3. 调用工具执行器，返回结果
     return await tool_executor.execute_tool(runtime, "get_product", tool_arguments,
-                                      operator=lambda: ecommerce_client.get_json("/products/{normalized_product_id}"))
+                                      operator=lambda: ecommerce_client.get_json(f"/products/{normalized_product_id}"))
 
 
 @tool  # 【声明第1步：注解】注册为 LangChain 标准工具
@@ -88,7 +88,7 @@ async def get_order(
     tool_arguments = {"order_id": normalized_order_id}
     # 3. 调用工具执行器，返回结果
     return await tool_executor.execute_tool(runtime, "get_order", tool_arguments,
-                                      operator=lambda: ecommerce_client.get_json("/orders/{normalized_order_id}",
+                                      operator=lambda: ecommerce_client.get_json(f"/orders/{normalized_order_id}",
                                                                                  query_params=tool_arguments))
 
 

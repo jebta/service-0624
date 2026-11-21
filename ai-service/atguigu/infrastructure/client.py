@@ -42,3 +42,4 @@ class EcommerceClient:
 
             # 3.2 返回接口数据（字典对象）
             return response.json()
+

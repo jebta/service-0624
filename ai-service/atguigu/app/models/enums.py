@@ -21,3 +21,4 @@ class AgentTraceStatus(StrEnum):
 
 class ToolResultCode(StrEnum):
     TOOL_CALL_FAILED = "TOOL_CALL_FAILED"
+    KNOWLEDGE_SEARCH_COMPLETED = "KNOWLEDGE_SEARCH_COMPLETED"

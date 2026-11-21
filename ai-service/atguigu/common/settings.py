@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """AI Service 运行配置。"""
 
     ai_database_url: str = Field(
-        "postgresql+psycopg://customer_service:customer_service@127.0.0.1:5432/ai_customer_service",
+        "postgresql+psycopg://customer_service:customer_service@192.168.200.166:5432/ai_customer_service",
         description="AI 服务 PostgreSQL 数据库连接地址",
     )
     api_host: str = Field("0.0.0.0", description="服务监听地址")
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     internal_service_token: str = Field("customer-internal-token", description="微服务内部调用共享令牌")
     jwt_secret: str = Field("ecommerce-secret", description="JWT 签名密钥")
     jwt_algorithm: str = Field("HS256", description="JWT 签名算法")
-    ecommerce_base_url: str = Field("http://127.0.0.1:8001/api/v1", description="电商业务服务接口地址")
+    ecommerce_base_url: str = Field("http://192.168.200.166:8001/api/v1", description="电商业务服务接口地址")
     ecommerce_timeout_seconds: float = Field(8.0, description="调用电商业务服务的 HTTP 超时秒数")
 
     llm_provider: Literal["deepseek", "qwen"] = Field(
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         description="大模型提供商类型",
     )
     llm_model: str = Field("deepseek-flash", description="大模型名称")
-    llm_api_key: str = Field("sk-fd5b40e5ac6a47149680be3f3be57c9d", description="大模型 API Key")
+    llm_api_key: str = Field("", description="大模型 API Key")
     llm_base_url: str = Field("https://api.deepseek.com", description="大模型接口基础地址")
     llm_thinking_mode: Literal["True", "False"] = Field("False", description="是否开启大模型深度思考模式")
     llm_timeout_seconds: float = Field(30.0, description="调用大模型的超时秒数")

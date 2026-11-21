@@ -4,8 +4,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from atguigu.agent.harness.tools.catalog import TOOL_CATALOG, ToolCategory
-from atguigu.agent.harness.validator.action import validate_page_action
-from atguigu.agent.harness.validator.answer import validate_answer
 from atguigu.agent.llm.output import AgentOutput
 from atguigu.app.models.enums import ReplyType, ToolResultCode
 from atguigu.app.models.models import AgentToolCall
@@ -14,6 +12,9 @@ from atguigu.app.models.models import AgentToolCall
 class ValidateAgentOutError(ValueError):
     pass
 
+from atguigu.agent.harness.validator.jev import check_output
+from atguigu.agent.harness.validator.action import validate_page_action
+from atguigu.agent.harness.validator.answer import validate_answer
 
 # 降级兜底的回复内容
 BUSINESS_FAILURE_MESSAGE = "暂时无法查询到可靠的订单、商品、物流或售后信息，请您稍后重试，或直接发送“转人工”由人工客服为您处理。"
@@ -32,7 +33,7 @@ class Validator:
         检测agent_output的输出内容
         """
         # 1. 获得回复类型
-        reply_type = agent_output.get("reply_type")
+        reply_type = agent_output.reply_type
 
         # 2. 查询工具调用记录
         stmt = select(AgentToolCall).where(AgentToolCall.trace_id == trace_id).order_by(AgentToolCall.created_at)
@@ -73,7 +74,10 @@ class Validator:
             # f) 有调用成功业务工具（校验ANSWER）
             validate_answer(agent_output.text, successful_bs_tool_calls)
 
-            # g) 检验页面行动
+            # g) Jev 语义护栏校验answer
+            await check_output(agent_output.text, successful_bs_tool_calls)
+
+            # h) 检验页面行动
             page_action: dict[str, Any] = validate_page_action(successful_bs_tool_calls, agent_output.page_action)
 
             return build_result(
@@ -90,6 +94,7 @@ class Validator:
             return build_result(
                 ReplyType.REQUEST_HANDOFF,
                 agent_output.text,
+                request_summary=agent_output.handoff_summary
             )
         # 3.3 校验回复类型意图澄清（CLARIFY）
         if reply_type == ReplyType.CLARIFY:

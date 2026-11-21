@@ -39,7 +39,7 @@ def validate_page_action(successful_bs_tool_calls: list[AgentToolCall],
         return action_definition.build_page()
 
     # 如果不是BROWSE_ORDERS，必须带resource_id
-    resource_id = action_definition.resource_id
+    resource_id = page_action.resource_id
     if resource_id is None:
         raise ValidateAgentOutError("{action_code} 必须提供订单编号")
 
@@ -54,19 +54,19 @@ def validate_page_action(successful_bs_tool_calls: list[AgentToolCall],
     return action_definition.build_page(resource_id=normalize_resource_id)
 
 
-def _validate_get_order(normalized_order_id: str, successful_bs_tool_calls: list[AgentToolCall]) -> dict[str, Any]:
+def _validate_get_order(normalize_resource_id: str, successful_bs_tool_calls: list[AgentToolCall]) -> dict[str, Any]:
     """
     校验调用过resource对应的get_order工具
-    :param normalized_order_id:
+    :param normalize_resource_id:
     :param successful_bs_tool_calls:
     :return:
     """
     for stc in successful_bs_tool_calls:
-        if stc.tool_name == "get_order" and stc.arguments["resource_id"] == normalized_order_id and stc.success == True:
+        if stc.tool_name == "get_order" and stc.arguments["order_id"] == normalize_resource_id and stc.success == True:
             return stc.result["data"]
 
     raise ValidateAgentOutError(
-        f"页面动作引用的订单未经get_order工具确认:{normalized_order_id}"
+        f"页面动作引用的订单未经get_order工具确认:{normalize_resource_id}"
     )
 
 
